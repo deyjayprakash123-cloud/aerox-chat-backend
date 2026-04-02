@@ -9,6 +9,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+/* DEBUG */
+console.log("DB_HOST:", process.env.DB_HOST);
+console.log("DB_USER:", process.env.DB_USER);
+console.log("DB_PORT:", process.env.DB_PORT);
+
+/* ROOT */
 app.get("/", (req, res) => {
   res.send("AEROX CHAT BACKEND RUNNING");
 });
@@ -35,7 +41,7 @@ app.post("/register", async (req, res) => {
     res.json({ success: true });
 
   } catch (err) {
-    console.error(err);
+    console.error("REGISTER ERROR:", err);
     res.status(500).json({ error: "Register failed" });
   }
 });
@@ -57,20 +63,61 @@ app.post("/login", async (req, res) => {
     res.json(rows[0]);
 
   } catch (err) {
-    console.error(err);
+    console.error("LOGIN ERROR:", err);
     res.status(500).json({ error: "Login failed" });
   }
 });
 
-/* USERS */
+/* USERS LIST */
 app.get("/users", async (req, res) => {
   try {
     const [rows] = await db.query(
       "SELECT id, username FROM users"
     );
+
     res.json(rows);
+
   } catch (err) {
-    console.error(err);
+    console.error("USERS ERROR:", err);
+    res.json([]);
+  }
+});
+
+/* SEND MESSAGE */
+app.post("/message", async (req, res) => {
+  try {
+    const { sender_id, receiver_id, message } = req.body;
+
+    await db.query(
+      "INSERT INTO messages (sender_id, receiver_id, message) VALUES (?, ?, ?)",
+      [sender_id, receiver_id, message]
+    );
+
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error("MESSAGE ERROR:", err);
+    res.status(500).json({ error: "Send failed" });
+  }
+});
+
+/* GET MESSAGES */
+app.get("/messages", async (req, res) => {
+  try {
+    const { sender_id, receiver_id } = req.query;
+
+    const [rows] = await db.query(
+      `SELECT * FROM messages 
+       WHERE (sender_id=? AND receiver_id=?)
+       OR (sender_id=? AND receiver_id=?)
+       ORDER BY created_at ASC`,
+      [sender_id, receiver_id, receiver_id, sender_id]
+    );
+
+    res.json(rows);
+
+  } catch (err) {
+    console.error("FETCH MESSAGE ERROR:", err);
     res.json([]);
   }
 });
